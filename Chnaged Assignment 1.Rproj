@@ -1,0 +1,224 @@
+---
+title: "Human Indicator"
+format: pdf
+editor: visual
+---
+
+## Importing the Library
+
+```{r}
+library(data.table)
+```
+
+## Loading the CSV files for India and Pakistan
+
+```{r}
+data_ind <- fread("hdro_indicators_ind.csv")
+data_pak <- fread("hdro_indicators_pak.csv")
+```
+
+```{r}
+str(data_ind)
+head(data_ind)
+
+str(data_pak)
+head(data_pak)
+```
+
+### Removing the 1st row of the data sets
+
+```{r}
+data_ind <- data_ind[-1, ]
+data_pak <- data_pak[-1, ]
+```
+
+```{r}
+str(data_ind)
+head(data_ind)
+
+str(data_pak)
+head(data_pak)
+```
+
+## Defining the column classes
+
+#### Identifying and removing rows which can cause problem of null vales.
+
+```{r}
+p_values <- data_ind[is.na(as.numeric(value)), value]
+print(p_values)
+
+```
+
+```{r}
+setDT(data_ind)
+
+```
+
+```{r}
+data_ind[, value := as.numeric(value)]
+```
+
+```{r}
+data_ind[, year := as.integer(year)]
+```
+
+```{r}
+setDT(data_pak)
+```
+
+```{r}
+data_pak[, value := as.numeric(value)]
+data_pak[, year := as.integer(year)]
+```
+
+```{r}
+print(head(data_ind))
+print(head(data_pak))
+```
+
+## Merging both the Data Sets
+
+```{r}
+data= rbind(data_ind,data_pak)
+```
+
+```{r}
+print(head(data))
+```
+
+## Data Exploration
+
+### Summary Statistics for Indian data
+
+```{r}
+str(data_ind)
+```
+
+### Summary Statistics for Pakistan data
+
+```{r}
+str(data_pak)
+```
+
+#### Checking for missing values in merged data and cleaning them
+
+```{r}
+missing_values <- sapply(data, function(x) sum(is.na(x)))
+print(missing_values)
+```
+
+```{r}
+clean_data <- data[!is.na(value) & is.finite(value)]
+```
+
+```{r}
+missing_values <- sapply(clean_data, function(x) sum(is.na(x)))
+print(missing_values)
+```
+
+```{r}
+data1 <- clean_data[!is.na(year) & is.finite(year)]
+```
+
+```{r}
+missing_values <- sapply(data1, function(x) sum(is.na(x)))
+print(missing_values)
+```
+
+### Value Distribution
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(data1, aes(x = value)) +
+  geom_histogram(binwidth = 500, fill = "blue", color = "black", alpha = 2) +
+  labs(title = "Distribution of Value", x = "Value", y = "Frequency")
+```
+
+#### Relation between value and year
+
+```{r}
+ggplot(data1, aes(x = year, y = value)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Value Over Years", x = "Year", y = "Value")
+```
+
+### Data Analytics
+
+#### Arranging Indicators according to mean value
+
+```{r}
+setDT(data1)
+```
+
+```{r}
+top_indi <- data1[, .(mean_value = mean(value, na.rm = TRUE)), by = indicator_name]
+
+## Getting top 10 Indicators
+
+top_indi <- top_indi[order(-mean_value)][1:10]
+
+print(top_indi)
+```
+
+#### Trends over time for India
+
+```{r}
+country_data <- data1[country_name == "India" & indicator_name == "HDI male"]
+
+```
+
+```{r}
+ggplot(country_data, aes(x = year, y = value)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red") +
+  labs(title = paste("Trend of", "HDI male", "in", "India"),
+       x = "Year", y = "Value")
+```
+
+#### Trends over time for Pakistan
+
+```{r}
+country_data1 <- data1[country_name == "Pakistan" & indicator_name == "HDI male"]
+```
+
+```{r}
+ggplot(country_data1, aes(x = year, y = value)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red") +
+  labs(title = paste("Trend of", "HDI male", "in", "Pakistan"),
+       x = "Year", y = "Value")
+```
+
+### Changes Made
+
+####  visualizing the distribution of value for each country and identify any outliers.
+
+```{r}
+ggplot(country_data, aes(x = reorder("India", value, FUN = median), y = value)) +
+  geom_boxplot() +
+  labs(title = "Distribution of Value by Country",
+       x = "Country",
+       y = "Value") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  coord_flip()
+```
+
+#### Bar Plot of the Mean value by Indicator
+
+```{r}
+mean_value_by_indicator <- country_data1[, .(mean_value = mean(value, na.rm = TRUE)), by = indicator_name]
+
+ggplot(mean_value_by_indicator, aes(x = reorder(indicator_name, -mean_value), y = mean_value)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Mean Value by Indicator",
+       x = "Indicator",
+       y = "Mean Value") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  coord_flip()
+
+```
